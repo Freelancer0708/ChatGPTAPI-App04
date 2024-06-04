@@ -13,23 +13,9 @@ const openai = new OpenAI({
 });
 
 // ファイル名を生成する関数
-const generateFileName = (summary: string) => {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  // 同じ日に複数のファイルを作成する場合に連番を付ける
-  const baseName = `${year}-${month}-${day}`;
-  let counter = 1;
-  let fileName = `${baseName}-${String(counter).padStart(2, '0')}-${summary}.mp3`;
-  const publicDir = path.resolve('./public');
-
-  while (fs.existsSync(path.join(publicDir, fileName))) {
-    counter += 1;
-    fileName = `${baseName}-${String(counter).padStart(2, '0')}-${summary}.mp3`;
-  }
-
+const generateFileName = (summary: string, date: string, time: string) => {
+  let safeSummary = summary.replace(/[^a-zA-Z0-9-_]/g, ''); // ファイル名として安全な文字のみを使用
+  let fileName = `${date}_${time}_${safeSummary}.mp3`;
   return fileName;
 };
 
@@ -63,6 +49,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // テキストを要約
     const summary = await summarizeText(text);
 
+    // 日付と時間を取得
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const dateString = `${year}-${month}-${day}`;
+    const timeString = `${hours}-${minutes}-${seconds}`;
+
     const mp3 = await openai.audio.speech.create({
       model: 'tts-1',
       voice: voice,
@@ -71,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const buffer = Buffer.from(await mp3.arrayBuffer());
     const publicDir = path.resolve('./public');
-    const fileName = generateFileName(summary);
+    const fileName = generateFileName(summary, dateString, timeString);
     const filePath = path.join(publicDir, fileName);
 
     // publicディレクトリが存在するか確認し、存在しない場合は作成
